@@ -48,30 +48,73 @@ export default function Web3Provider({
   useEffect(() => {
     setMounted(true)
     
-    // MetaMask detection and error prevention
+    // Kapsamlı MetaMask error prevention
     if (typeof window !== 'undefined') {
-      // Check if MetaMask is available
-      const { ethereum } = window as any
-      if (ethereum && ethereum.isMetaMask) {
-        console.log('MetaMask detected')
-      }
+      // Store original console.error
+      const originalConsoleError = console.error
       
-      // Prevent runtime.sendMessage errors
-      window.addEventListener('error', (event) => {
-        if (event.message.includes('runtime.sendMessage')) {
-          event.preventDefault()
-          console.warn('Prevented MetaMask runtime.sendMessage error')
+      // Override console.error to filter MetaMask errors
+      console.error = (...args) => {
+        const message = args.join(' ')
+        if (
+          message.includes('runtime.sendMessage') ||
+          message.includes('Extension context invalidated') ||
+          message.includes('chrome-extension://') ||
+          message.includes('Cannot access a chrome-extension://')
+        ) {
+          // Suppress MetaMask related errors
+          return
         }
-      })
+        // Call original console.error for other errors
+        originalConsoleError.apply(console, args)
+      }
 
-      // Prevent unhandled promise rejections from MetaMask
-      window.addEventListener('unhandledrejection', (event) => {
-        if (event.reason && event.reason.message && 
-            event.reason.message.includes('runtime.sendMessage')) {
+      // Global error event listener
+      const handleError = (event: ErrorEvent) => {
+        if (
+          event.message?.includes('runtime.sendMessage') ||
+          event.message?.includes('Extension context invalidated') ||
+          event.message?.includes('chrome-extension://')
+        ) {
           event.preventDefault()
-          console.warn('Prevented MetaMask unhandled rejection')
+          event.stopPropagation()
+          return false
         }
-      })
+      }
+
+      // Unhandled promise rejection handler
+      const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+        const message = event.reason?.message || String(event.reason)
+        if (
+          message.includes('runtime.sendMessage') ||
+          message.includes('Extension context invalidated') ||
+          message.includes('chrome-extension://')
+        ) {
+          event.preventDefault()
+          return false
+        }
+      }
+
+      // Add event listeners
+      window.addEventListener('error', handleError, true)
+      window.addEventListener('unhandledrejection', handleUnhandledRejection, true)
+
+      // MetaMask detection with error suppression
+      try {
+        const { ethereum } = window as any
+        if (ethereum && ethereum.isMetaMask) {
+          console.log('MetaMask detected successfully')
+        }
+      } catch (error) {
+        // Suppress MetaMask detection errors
+      }
+
+      // Cleanup function
+      return () => {
+        window.removeEventListener('error', handleError, true)
+        window.removeEventListener('unhandledrejection', handleUnhandledRejection, true)
+        console.error = originalConsoleError
+      }
     }
   }, [])
 

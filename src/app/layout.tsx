@@ -1,27 +1,40 @@
-import type { Metadata } from 'next'
-import './globals.css'
-import Web3Provider from '@/providers/Web3Provider'
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import Web3Provider from "@/providers/Web3Provider";
+import ErrorBoundary from "@/components/ErrorBoundary";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: '🍓 Strawberry Catcher - Web3 Game',
-  description: 'Modern Web3 oyunu - Çilekleri yakala, bombaları kaçın! Rainbow Kit ile güçlendirildi.',
-  keywords: 'web3, game, phaser, next.js, rainbow kit, blockchain',
-  authors: [{ name: 'Boundless Fruit Games' }],
-  viewport: 'width=device-width, initial-scale=1',
-}
+  title: "Strawberry Catcher - Web3 Game",
+  description: "Catch falling strawberries and connect your wallet!",
+};
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode
-}) {
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="tr">
-      <body className="antialiased">
-        <Web3Provider>
-          {children}
-        </Web3Provider>
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <ErrorBoundary>
+          <Web3Provider>
+            {children}
+          </Web3Provider>
+        </ErrorBoundary>
       </body>
     </html>
-  )
+  );
 }

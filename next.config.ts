@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
       tls: false,
       crypto: false,
     };
+    
+    // Suppress webpack warnings for MetaMask
+    config.ignoreWarnings = [
+      /Failed to parse source map/,
+      /Module not found: Can't resolve 'pino-pretty'/,
+    ];
+    
     return config;
   },
   
@@ -31,11 +38,29 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; connect-src 'self' https: wss:; frame-src 'none';",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https: chrome-extension:",
+              "style-src 'self' 'unsafe-inline' https:",
+              "img-src 'self' data: https: chrome-extension:",
+              "connect-src 'self' https: wss: chrome-extension:",
+              "frame-src 'none'",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'"
+            ].join('; '),
           },
         ],
       },
     ];
+  },
+  
+  // Suppress build warnings
+  typescript: {
+    ignoreBuildErrors: false,
+  },
+  eslint: {
+    ignoreDuringBuilds: false,
   },
 };
 
