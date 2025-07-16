@@ -48,58 +48,8 @@ export default function Web3Provider({
   useEffect(() => {
     setMounted(true)
     
-    // Kapsamlı MetaMask error prevention
+    // Simple MetaMask detection without error handling
     if (typeof window !== 'undefined') {
-      // Store original console.error
-      const originalConsoleError = console.error
-      
-      // Override console.error to filter MetaMask errors
-      console.error = (...args) => {
-        const message = args.join(' ')
-        if (
-          message.includes('runtime.sendMessage') ||
-          message.includes('Extension context invalidated') ||
-          message.includes('chrome-extension://') ||
-          message.includes('Cannot access a chrome-extension://')
-        ) {
-          // Suppress MetaMask related errors
-          return
-        }
-        // Call original console.error for other errors
-        originalConsoleError.apply(console, args)
-      }
-
-      // Global error event listener
-      const handleError = (event: ErrorEvent) => {
-        if (
-          event.message?.includes('runtime.sendMessage') ||
-          event.message?.includes('Extension context invalidated') ||
-          event.message?.includes('chrome-extension://')
-        ) {
-          event.preventDefault()
-          event.stopPropagation()
-          return false
-        }
-      }
-
-      // Unhandled promise rejection handler
-      const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-        const message = event.reason?.message || String(event.reason)
-        if (
-          message.includes('runtime.sendMessage') ||
-          message.includes('Extension context invalidated') ||
-          message.includes('chrome-extension://')
-        ) {
-          event.preventDefault()
-          return false
-        }
-      }
-
-      // Add event listeners
-      window.addEventListener('error', handleError, true)
-      window.addEventListener('unhandledrejection', handleUnhandledRejection, true)
-
-      // MetaMask detection with error suppression
       try {
         const { ethereum } = window as any
         if (ethereum && ethereum.isMetaMask) {
@@ -107,13 +57,6 @@ export default function Web3Provider({
         }
       } catch (error) {
         // Suppress MetaMask detection errors
-      }
-
-      // Cleanup function
-      return () => {
-        window.removeEventListener('error', handleError, true)
-        window.removeEventListener('unhandledrejection', handleUnhandledRejection, true)
-        console.error = originalConsoleError
       }
     }
   }, [])

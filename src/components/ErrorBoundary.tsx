@@ -10,40 +10,38 @@ export default function ErrorBoundary({ children }: { children: React.ReactNode 
       const originalError = console.error;
       const originalWarn = console.warn;
       
-      // Override console.error to filter MetaMask errors
+      // More selective console.error override to avoid interfering with Next.js
       console.error = (...args) => {
         const message = args.join(' ');
+        
+        // Only suppress specific MetaMask errors, not all errors
         if (
-          message.includes('runtime.sendMessage') ||
-          message.includes('Extension context invalidated') ||
-          message.includes('chrome-extension://') ||
-          message.includes('Cannot access a chrome-extension://') ||
-          message.includes('Error in invocation of runtime.sendMessage') ||
-          message.includes('chrome.runtime.sendMessage()') ||
-          message.includes('Extension ID') ||
-          message.includes('inpage.js')
+          (message.includes('runtime.sendMessage') && message.includes('chrome-extension://')) ||
+          (message.includes('Extension context invalidated') && message.includes('MetaMask')) ||
+          (message.includes('Error in invocation of runtime.sendMessage') && message.includes('Extension ID')) ||
+          (message.includes('inpage.js') && message.includes('chrome-extension://'))
         ) {
-          // Suppress MetaMask related errors silently
+          // Suppress only verified MetaMask related errors
           return;
         }
+        
+        // Let all other errors through, including Next.js errors
         originalError.apply(console, args);
       };
 
-      // Override console.warn to filter MetaMask warnings
+      // More selective console.warn override
       console.warn = (...args) => {
         const message = args.join(' ');
         if (
-          message.includes('runtime.sendMessage') ||
-          message.includes('Extension context invalidated') ||
-          message.includes('chrome-extension://') ||
-          message.includes('inpage.js')
+          (message.includes('runtime.sendMessage') && message.includes('chrome-extension://')) ||
+          (message.includes('Extension context invalidated') && message.includes('MetaMask'))
         ) {
           return;
         }
         originalWarn.apply(console, args);
       };
 
-      // Intercept chrome.runtime if it exists
+      // Intercept chrome.runtime if it exists (keep this as is)
       if (typeof window !== 'undefined' && (window as any).chrome && (window as any).chrome.runtime) {
         const chrome = (window as any).chrome;
         const originalSendMessage = chrome.runtime.sendMessage;
@@ -57,54 +55,53 @@ export default function ErrorBoundary({ children }: { children: React.ReactNode 
         };
       }
 
-      // Global error handler
+      // More selective global error handler
       const handleGlobalError = (event: ErrorEvent) => {
         const message = event.message || '';
+        const filename = event.filename || '';
+        
+        // Only handle MetaMask specific errors, not Next.js errors
         if (
-          message.includes('runtime.sendMessage') ||
-          message.includes('Extension context invalidated') ||
-          message.includes('chrome-extension://') ||
-          message.includes('Error in invocation of runtime.sendMessage') ||
-          message.includes('chrome.runtime.sendMessage()') ||
-          message.includes('Extension ID') ||
-          event.filename?.includes('chrome-extension://') ||
-          event.filename?.includes('inpage.js')
+          (message.includes('runtime.sendMessage') && filename.includes('chrome-extension://')) ||
+          (message.includes('Extension context invalidated') && filename.includes('inpage.js')) ||
+          (message.includes('Error in invocation of runtime.sendMessage') && message.includes('Extension ID')) ||
+          filename.includes('chrome-extension://inpage.js')
         ) {
           event.preventDefault();
           event.stopPropagation();
-          event.stopImmediatePropagation();
           return false;
         }
+        
+        // Let Next.js and other legitimate errors bubble up
+        return true;
       };
 
-      // Unhandled promise rejection handler
+      // More selective unhandled promise rejection handler
       const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
         const message = event.reason?.message || String(event.reason);
+        
+        // Only handle MetaMask specific rejections
         if (
-          message.includes('runtime.sendMessage') ||
-          message.includes('Extension context invalidated') ||
-          message.includes('chrome-extension://') ||
-          message.includes('Error in invocation of runtime.sendMessage') ||
-          message.includes('Extension ID')
+          (message.includes('runtime.sendMessage') && message.includes('chrome-extension://')) ||
+          (message.includes('Extension context invalidated') && message.includes('MetaMask')) ||
+          (message.includes('Error in invocation of runtime.sendMessage') && message.includes('Extension ID'))
         ) {
           event.preventDefault();
-          event.stopImmediatePropagation();
           return false;
         }
+        
+        // Let Next.js and other legitimate promise rejections bubble up
+        return true;
       };
 
-      // Add event listeners with capture=true for early intervention
-      window.addEventListener('error', handleGlobalError, { capture: true, passive: false });
-      window.addEventListener('unhandledrejection', handleUnhandledRejection, { capture: true, passive: false });
-
-      // Additional error suppression for document level
-      document.addEventListener('error', handleGlobalError, { capture: true, passive: false });
+      // Add event listeners with lower priority to avoid interfering with Next.js
+      window.addEventListener('error', handleGlobalError, { capture: false, passive: false });
+      window.addEventListener('unhandledrejection', handleUnhandledRejection, { capture: false, passive: false });
 
       // Cleanup function
       return () => {
-        window.removeEventListener('error', handleGlobalError, { capture: true });
-        window.removeEventListener('unhandledrejection', handleUnhandledRejection, { capture: true });
-        document.removeEventListener('error', handleGlobalError, { capture: true });
+        window.removeEventListener('error', handleGlobalError);
+        window.removeEventListener('unhandledrejection', handleUnhandledRejection);
         console.error = originalError;
         console.warn = originalWarn;
       };
